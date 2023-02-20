@@ -46,6 +46,31 @@ boot:a
 mouse:enabled=0
 ```
 
+windows 下的配置文件
+
+```txt
+megs: 32
+romimage: file="C:\\Program Files\\Bochs-2.7\\BIOS-bochs-latest"
+vgaromimage: file="C:\\Program Files\\Bochs-2.7\\VGABIOS-lgpl-latest"
+floppya: 1_44=freedos.img, status=inserted
+floppyb: 1_44=pmtest.img, status=inserted
+boot: a
+mouse: enabled=0
+```
+
 ### 格式化pmtest.img
 
-软盘B
+`format.exe B:`
+
+### 挂载
+
+windows下使用DiskGenius进行挂载
+
+![image-20230220105123352](assets/image-20230220105123352.png)
+
+在Files进行修改
+
+![image-20230220105143868](assets/image-20230220105143868.png)
+
+## 二、实验部分
+
