@@ -122,7 +122,7 @@ LABEL_TASK%1_DESC_STACK0: Descriptor	0,	TopOfTask%1Stack0,	 DA_DRWA + DA_32
 LABEL_TASK%1_DESC_STACK3: Descriptor	0,	TopOfTask%1Stack3,	 DA_DRWA + DA_32 + DA_DPL3
 
 
-TASK%1LDTLen		equ	$ - LABEL_TASK%1_LDT=
+TASK%1LDTLen		equ	$ - LABEL_TASK%1_LDT
 ; LDT 选择子
 SelectorTask%1Data	equ	LABEL_TASK%1_DESC_DATA - LABEL_TASK%1_LDT + SA_TIL + SA_RPL3
 SelectorTask%1Code	equ	LABEL_TASK%1_DESC_CODE - LABEL_TASK%1_LDT + SA_TIL + SA_RPL3
@@ -147,18 +147,18 @@ Task%1DataLen	equ	$ - LABEL_TASK%1_DATA
 %endmacro
 
 ; 定义任务代码段
-; usage: DefineTaskCode num, color
-%macro DefineTaskCode 2
+; usage: DefineTaskCode num, row, color
+%macro DefineTaskCode 3
 [SECTION .task%1code]
 ALIGN	32
 [BITS	32]
 LABEL_TASK%1_CODE:
 ; 遍历输出szTask0Message
 	xor 	ecx, ecx
-	mov 	ah, %2
+	mov 	ah, %3
 .outputLoop:
 	mov 	al, [szTask%1Message + ecx]
-	mov 	[gs:((80 * 20 + ecx) * 2)], ax
+	mov 	[gs:((80 * %2 + ecx) * 2)], ax
 	inc 	ecx
 	; 判断是否到达字符串末尾
 	cmp 	al, 0
@@ -194,17 +194,17 @@ TopOfTask%1Stack3	equ	$ - LABEL_TASK%1_STACK3 - 1
 %endmacro
 
 ; 定义任务
-; usage: DefineTask num, string, color
-%macro DefineTask 3
+; usage: DefineTask num, string, row,color
+%macro DefineTask 4
 	DefineLDT	%1
-	DefineTaskCode	%1, %3
+	DefineTaskCode	%1, %3, %4
 	DefineTaskData	%1, %2
 	DefineTaskStack0	%1
 	DefineTaskStack3	%1
 %endmacro
 
 ; 定义初始化页表
-; usage: DefineInitPageTable num
+; usage: InitPageTable num
 %macro InitPageTable 1
 LABEL_INIT_PAGE_TABLE%1:
 		; 初始化页目录
@@ -218,7 +218,6 @@ LABEL_INIT_PAGE_TABLE%1:
 	stosd
 	add		eax, 4096				; 为了简化, 所有页表在内存中是连续的.
 	loop	.1
-
 	; 再初始化所有页表
 	mov		eax, [PageTableNumber]	; 页表个数
 	mov		ebx, 1024				; 每个页表 1024 个 PTE

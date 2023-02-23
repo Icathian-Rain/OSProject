@@ -192,10 +192,10 @@ TSSLen		equ	$ - LABEL_TSS
 
 
 ; 定义任务
-DefineTask 0, "VERY", 0Ch
-DefineTask 1, "LOVE", 0Fh
-DefineTask 2, "HUST", 0Ch
-DefineTask 3, "MRSU", 0Fh
+DefineTask 0, "VERY", 20, 0Ch
+DefineTask 1, "LOVE", 20, 0Fh
+DefineTask 2, "HUST", 20, 0Ch
+DefineTask 3, "MRSU", 20, 0Fh
 
 [SECTION .s16]
 [BITS	16]
