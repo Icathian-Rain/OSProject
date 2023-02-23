@@ -5,3 +5,7 @@ floppya: 1_44=freedos.img, status=inserted
 floppyb: 1_44=pmtest.img, status=inserted
 boot: a
 mouse: enabled=0
+magic_break: enabled=1
+
+panic: action=report
+display_library: win32, options="gui_debug"
