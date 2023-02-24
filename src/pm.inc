@@ -260,5 +260,4 @@ LABEL_INIT_PAGE_TABLE%1:
 	push	SelectorTask%1Code	; CS
 	push	0					; EIP
 	iretd
-	iretd
 %endmacro

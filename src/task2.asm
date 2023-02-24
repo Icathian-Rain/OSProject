@@ -1,23 +1,21 @@
-; ==========================================
-; pmtest8.asm
-; 编译方法：nasm pmtest8.asm -o pmtest8.com
-; ==========================================
+; -----------------------------------------------------------------
+; TASK2
+; 编译方法：nasm task2.asm -o task2.com
+; -----------------------------------------------------------------
 
 %include	"pm.inc"	; 常量, 宏, 以及一些说明
 
+; 页目录位置
 PageDirBase0		equ	200000h	; 页目录开始地址:	2M
 PageTblBase0		equ	201000h	; 页表开始地址:		2M +  4K
 PageDirBase1		equ	210000h	; 页目录开始地址:	2M + 64K
 PageTblBase1		equ	211000h	; 页表开始地址:		2M + 64K + 4K
-PageDirBase2		equ	220000h	; 页目录开始地址:	2M + 128K
-PageTblBase2		equ	221000h	; 页表开始地址:		2M + 128K + 4K
-PageDirBase3		equ	230000h	; 页目录开始地址:	2M + 192K
-PageTblBase3		equ	231000h	; 页表开始地址:		2M + 192K + 4K
+
 org	0100h
 	jmp	LABEL_BEGIN
 
-[SECTION .gdt]
 ; GDT
+[SECTION .gdt]
 ;                           段基址,       段界限, 属性
 LABEL_GDT:          Descriptor 0,              0, 0                      ; 空描述符
 LABEL_DESC_NORMAL:  Descriptor 0,         0ffffh, DA_DRW                 ; Normal 描述符
@@ -25,15 +23,13 @@ LABEL_DESC_FLAT_C:  Descriptor 0,        0fffffh, DA_CR|DA_32|DA_LIMIT_4K; 0~4G
 LABEL_DESC_FLAT_RW: Descriptor 0,        0fffffh, DA_DRW|DA_LIMIT_4K     ; 0~4G
 LABEL_DESC_CODE32:  Descriptor 0, SegCode32Len-1, DA_CR|DA_32            ; 非一致代码段, 32
 LABEL_DESC_CODE16:  Descriptor 0,         0ffffh, DA_C                   ; 非一致代码段, 16
-
-LABEL_DESC_CODE_SWITCH:  Descriptor 0,  SegCodeSwitchLen-1, DA_C+DA_32	   ;非一致,32
-LABEL_DESC_CODE_EXIT:  Descriptor 0,  SegCodeExitLen-1, DA_C+DA_32	   ;非一致,32
-
 LABEL_DESC_DATA:    Descriptor 0,      DataLen-1, DA_DRW                 ; Data
 LABEL_DESC_STACK:   Descriptor 0,     TopOfStack, DA_DRWA|DA_32          ; Stack, 32 位
 LABEL_DESC_STACK3:     Descriptor 0,       TopOfStack3, DA_DRWA+DA_32+DA_DPL3
 LABEL_DESC_VIDEO:   Descriptor 0B8000h,   0ffffh, DA_DRW+DA_DPL3                 ; 显存首地址
-
+; 门目标描述符
+LABEL_DESC_CODE_SWITCH:  Descriptor 0,  SegCodeSwitchLen-1, DA_C+DA_32	   ;非一致,32
+LABEL_DESC_CODE_EXIT:  Descriptor 0,  SegCodeExitLen-1, DA_C+DA_32	   ;非一致,32
 ; TSS
 LABEL_DESC_TSS: 	Descriptor 			0,          TSSLen-1, DA_386TSS	   ;TSS
 ; 任务A的描述符
@@ -57,25 +53,24 @@ SelectorFlatC		equ	LABEL_DESC_FLAT_C	- LABEL_GDT
 SelectorFlatRW		equ	LABEL_DESC_FLAT_RW	- LABEL_GDT
 SelectorCode32		equ	LABEL_DESC_CODE32	- LABEL_GDT
 SelectorCode16		equ	LABEL_DESC_CODE16	- LABEL_GDT
-
-SelectorCodeSwitch	equ	LABEL_DESC_CODE_SWITCH	- LABEL_GDT
-SelectorCodeEXIT	equ	LABEL_DESC_CODE_EXIT	- LABEL_GDT
-
 SelectorStack3		equ	LABEL_DESC_STACK3	- LABEL_GDT + SA_RPL3
 SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT
 SelectorStack		equ	LABEL_DESC_STACK	- LABEL_GDT
 SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
+
+; 目标选择子
+SelectorCodeSwitch	equ	LABEL_DESC_CODE_SWITCH	- LABEL_GDT
+SelectorCodeEXIT	equ	LABEL_DESC_CODE_EXIT	- LABEL_GDT
+
 ; TSS
 SelectorTSS        equ LABEL_DESC_TSS     		- LABEL_GDT
 ; 任务A的选择子
 SelectorLDTA		equ LABEL_TASKA_DESC_LDT		- LABEL_GDT
 ; 任务B的选择子
 SelectorLDTB		equ LABEL_TASKB_DESC_LDT		- LABEL_GDT
-
+; 门选择子
 SelectorCallGateSwitch	equ	LABEL_CALL_GATE_SWITCH	- LABEL_GDT + SA_RPL3
 SelectorCallGateExit	equ	LABEL_CALL_GATE_EXIT	- LABEL_GDT + SA_RPL3
-
-
 ; END of [SECTION .gdt]
 
 [SECTION .data1]	 ; 数据段

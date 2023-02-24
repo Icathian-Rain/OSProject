@@ -1,12 +1,17 @@
+; -----------------------------------------------------------------
 ; TASK1：实现保护模式初始化程序，能将CPU带入保护模式，实现不同权限级别的代码跳转
+; 编译方法：nasm task1.asm -o task1.com
+; -----------------------------------------------------------------
 
-%include	"pm.inc"	; 常量, 宏, 以及一些说明
+; 常量，宏定义
+%include	"pm.inc"	
 
+; 装载位置
 org	0100h
 	jmp	LABEL_BEGIN
 
-[SECTION .gdt]
 ; GDT
+[SECTION .gdt]
 ;                            段基址,           段界限     , 属性
 LABEL_GDT:             Descriptor 0,                 0, 0		   ;空描述符
 LABEL_DESC_NORMAL:     Descriptor 0,            0ffffh, DA_DRW		   ;Normal描述符
@@ -44,8 +49,10 @@ SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
 
 SelectorCallGateTest	equ	LABEL_CALL_GATE_TEST	- LABEL_GDT + SA_RPL3
 ; END of [SECTION .gdt]
+; -----------------------------------------------------------------------------------------------
 
-[SECTION .data1]	 ; 数据段
+; 数据段
+[SECTION .data1]
 ALIGN	32
 [BITS	32]
 LABEL_DATA:
@@ -55,7 +62,7 @@ PMMessage:		db	"In Protect Mode", 0	; 进入保护模式后显示此字符串
 OffsetPMMessage		equ	PMMessage - $$
 DataLen			equ	$ - LABEL_DATA
 ; END of [SECTION .data1]
-
+; -----------------------------------------------------------------------------------------------
 
 ; 全局堆栈段
 [SECTION .gs]
@@ -65,7 +72,7 @@ LABEL_STACK:
 	times 512 db 0
 TopOfStack	equ	$ - LABEL_STACK - 1
 ; END of [SECTION .gs]
-
+; -----------------------------------------------------------------------------------------------
 
 ; 堆栈段ring3
 [SECTION .s3]
@@ -75,7 +82,7 @@ LABEL_STACK3:
 	times 512 db 0
 TopOfStack3	equ	$ - LABEL_STACK3 - 1
 ; END of [SECTION .s3]
-
+; -----------------------------------------------------------------------------------------------
 
 ; TSS ---------------------------------------------------------------------------------------------
 [SECTION .tss]
@@ -114,117 +121,48 @@ TSSLen		equ	$ - LABEL_TSS
 ; TSS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+; s16
 [SECTION .s16]
 [BITS	16]
 LABEL_BEGIN:
+	; 初始化
 	mov	ax, cs
 	mov	ds, ax
 	mov	es, ax
 	mov	ss, ax
 	mov	sp, 0100h
-
 	mov	[LABEL_GO_BACK_TO_REAL+3], ax
 	mov	[SPValueInRealMode], sp
 
 	; 初始化 16 位代码段描述符
-	mov	ax, cs
-	movzx	eax, ax
-	shl	eax, 4
-	add	eax, LABEL_SEG_CODE16
-	mov	word [LABEL_DESC_CODE16 + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_CODE16 + 4], al
-	mov	byte [LABEL_DESC_CODE16 + 7], ah
+	InitDescBase LABEL_SEG_CODE16, LABEL_DESC_CODE16
 
 	; 初始化 32 位代码段描述符
-	xor	eax, eax
-	mov	ax, cs
-	shl	eax, 4
-	add	eax, LABEL_SEG_CODE32
-	mov	word [LABEL_DESC_CODE32 + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_CODE32 + 4], al
-	mov	byte [LABEL_DESC_CODE32 + 7], ah
+	InitDescBase LABEL_SEG_CODE32, LABEL_DESC_CODE32
 
 	; 初始化测试调用门的代码段描述符
-	xor	eax, eax
-	mov	ax, cs
-	shl	eax, 4
-	add	eax, LABEL_SEG_CODE_DEST
-	mov	word [LABEL_DESC_CODE_DEST + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_CODE_DEST + 4], al
-	mov	byte [LABEL_DESC_CODE_DEST + 7], ah
+	InitDescBase LABEL_SEG_CODE_DEST, LABEL_DESC_CODE_DEST
 
 	; 初始化数据段描述符
-	xor	eax, eax
-	mov	ax, ds
-	shl	eax, 4
-	add	eax, LABEL_DATA
-	mov	word [LABEL_DESC_DATA + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_DATA + 4], al
-	mov	byte [LABEL_DESC_DATA + 7], ah
+	InitDescBase LABEL_DATA, LABEL_DESC_DATA
 
 	; 初始化堆栈段描述符
-	xor	eax, eax
-	mov	ax, ds
-	shl	eax, 4
-	add	eax, LABEL_STACK
-	mov	word [LABEL_DESC_STACK + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_STACK + 4], al
-	mov	byte [LABEL_DESC_STACK + 7], ah
+	InitDescBase LABEL_STACK, LABEL_DESC_STACK
 
 	; 初始化堆栈段描述符(ring3)
-	xor	eax, eax
-	mov	ax, ds
-	shl	eax, 4
-	add	eax, LABEL_STACK3
-	mov	word [LABEL_DESC_STACK3 + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_STACK3 + 4], al
-	mov	byte [LABEL_DESC_STACK3 + 7], ah
+	InitDescBase LABEL_STACK3, LABEL_DESC_STACK3
 
 	; 初始化 LDT 在 GDT 中的描述符
-	xor	eax, eax
-	mov	ax, ds
-	shl	eax, 4
-	add	eax, LABEL_LDT
-	mov	word [LABEL_DESC_LDT + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_LDT + 4], al
-	mov	byte [LABEL_DESC_LDT + 7], ah
+	InitDescBase LABEL_LDT, LABEL_DESC_LDT
 
 	; 初始化 LDT 中的描述符
-	xor	eax, eax
-	mov	ax, ds
-	shl	eax, 4
-	add	eax, LABEL_CODE_A
-	mov	word [LABEL_LDT_DESC_CODEA + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_LDT_DESC_CODEA + 4], al
-	mov	byte [LABEL_LDT_DESC_CODEA + 7], ah
+	InitDescBase LABEL_CODE_A, LABEL_LDT_DESC_CODEA
 
 	; 初始化Ring3描述符
-	xor	eax, eax
-	mov	ax, ds
-	shl	eax, 4
-	add	eax, LABEL_CODE_RING3
-	mov	word [LABEL_DESC_CODE_RING3 + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_CODE_RING3 + 4], al
-	mov	byte [LABEL_DESC_CODE_RING3 + 7], ah
+	InitDescBase LABEL_CODE_RING3, LABEL_DESC_CODE_RING3
 
 	; 初始化 TSS 描述符
-	xor	eax, eax
-	mov	ax, ds
-	shl	eax, 4
-	add	eax, LABEL_TSS
-	mov	word [LABEL_DESC_TSS + 2], ax
-	shr	eax, 16
-	mov	byte [LABEL_DESC_TSS + 4], al
-	mov	byte [LABEL_DESC_TSS + 7], ah
+	InitDescBase LABEL_TSS, LABEL_DESC_TSS
 
 	; 为加载 GDTR 作准备
 	xor	eax, eax
@@ -281,12 +219,9 @@ LABEL_SEG_CODE32:
 	mov	ds, ax			; 数据段选择子
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子
-
 	mov	ax, SelectorStack
 	mov	ss, ax			; 堆栈段选择子
-
 	mov	esp, TopOfStack
-
 
 	; 下面显示一个字符串，In Protect Mode
 	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
@@ -305,16 +240,16 @@ LABEL_SEG_CODE32:
 .2:	; 显示完毕
 
 	call	DispReturn
-
 	; Load TSS
 	mov	ax, SelectorTSS
-	ltr	ax	; 在任务内发生特权级变换时要切换堆栈，而内层堆栈的指针存放在当前任务的TSS中，所以要设置任务状态段寄存器 TR。
+	ltr	ax
 
+	; 进入ring3
 	push	SelectorStack3
 	push	TopOfStack3
 	push	SelectorCodeRing3
 	push	0
-	retf		; Ring0 -> Ring3，历史性转移！将打印数字 '3'。
+	retf
 
 ; ------------------------------------------------------------------------
 DispReturn:
@@ -344,35 +279,27 @@ SegCode32Len	equ	$ - LABEL_SEG_CODE32
 LABEL_SEG_CODE_DEST:
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子(目的)
-
 	mov	edi, (80 * 12 + 0) * 2	; 屏幕第 12 行, 第 0 列。
 	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
 	mov	al, 'G'
 	mov	[gs:edi], ax
-
 	mov edi, (80 * 12 + 1) * 2
 	mov ah, 0Ch
 	mov al, 'a'
 	mov [gs:edi], ax
-
 	mov edi, (80 * 12 + 2) * 2
 	mov ah, 0Ch
 	mov al, 't'
 	mov [gs:edi], ax
-
 	mov edi, (80 * 12 + 3) * 2
 	mov ah, 0Ch
 	mov al, 'e'
 	mov [gs:edi], ax
-	
 	; Load LDT
 	mov	ax, SelectorLDT
 	lldt	ax
-
+	; 进入ldt代码段
 	jmp	SelectorLDTCodeA:0	
-
-	;retf
-
 SegCodeDestLen	equ	$ - LABEL_SEG_CODE_DEST
 ; END of [SECTION .sdest]
 
@@ -389,7 +316,7 @@ LABEL_SEG_CODE16:
 	mov	fs, ax
 	mov	gs, ax
 	mov	ss, ax
-
+	; 关闭保护模式
 	mov	eax, cr0
 	and	al, 11111110b
 	mov	cr0, eax
@@ -410,7 +337,6 @@ LABEL_LDT:
 LABEL_LDT_DESC_CODEA:	Descriptor	       0,     CodeALen - 1,   DA_C + DA_32	; Code, 32 位
 
 LDTLen		equ	$ - LABEL_LDT
-
 ; LDT 选择子
 SelectorLDTCodeA	equ	LABEL_LDT_DESC_CODEA	- LABEL_LDT + SA_TIL
 ; END of [SECTION .ldt]
@@ -428,17 +354,14 @@ LABEL_CODE_A:
 	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
 	mov	al, 'L'
 	mov	[gs:edi], ax
-
 	mov edi, (80 * 13 + 1) * 2
 	mov ah, 0Ch
 	mov al, 'D'
 	mov [gs:edi], ax
-
 	mov edi, (80 * 13 + 2) * 2
 	mov ah, 0Ch
 	mov al, 'T'
 	mov [gs:edi], ax
-
 
 	; 准备经由16位代码段跳回实模式
 	jmp	SelectorCode16:0

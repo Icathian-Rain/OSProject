@@ -1,12 +1,15 @@
+; -----------------------------------------------------------------
+; TASK3
+; 编译方法：nasm task3.asm -o task3.com
+; -----------------------------------------------------------------
+
 %include "pm.inc"
 
-
-; 4个任务页目录地址
+; 页目录地址
 PageDirBase0		equ	200000h	; 页目录开始地址:	2M
 PageTblBase0		equ	201000h	; 页表开始地址:		2M +  4K
 PageDirBase1		equ	210000h	; 页目录开始地址:	2M + 64K
 PageTblBase1		equ	211000h	; 页表开始地址:		2M + 64K + 4K
-
 
 org 0100h
     jmp LABEL_BEGIN
@@ -25,7 +28,6 @@ LABEL_IDT:
 				Gate	SelectorCode32, SpuriousHandler,      0, DA_386IGate
 %endrep
 .080h:			Gate	SelectorCode32,  UserIntHandler,      0, DA_386IGate
-
 IdtLen		equ	$ - LABEL_IDT	; IDT 长度
 IdtPtr		dw	IdtLen - 1		; IDT 段界限
 			dd	0				; IDT 基地址, 待设置
@@ -183,7 +185,6 @@ TSSLen		equ	$ - LABEL_TSS
 DefineTask 0, "VERY", 20, 0Ch
 DefineTask 1, "LOVE", 20, 0Fh
 
-
 [SECTION .s16]
 [BITS	16]
 LABEL_BEGIN:
@@ -333,10 +334,10 @@ LABEL_SEG_CODE32:
 .no_remainder:
 	mov	[PageTableNumber], ecx	; 暂存页表个数
 
+	; 初始化页表
 	call	LABEL_INIT_PAGE_TABLE0
 	call	LABEL_INIT_PAGE_TABLE1
 
-	
 	sti							; 打开中断
 
 	mov		eax, PageDirBase0	; ┳ 加载 CR3
