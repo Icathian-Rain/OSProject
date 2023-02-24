@@ -1,5 +1,9 @@
-%include "pm.inc"
+; -----------------------------------------------------------------
+; TASK4
+; 编译方法：nasm task4.asm -o task4.com
+; -----------------------------------------------------------------
 
+%include "pm.inc"
 
 ; 4个任务页目录地址
 PageDirBase0		equ	200000h	; 页目录开始地址:	2M
@@ -391,7 +395,8 @@ LABEL_SEG_CODE32:
 	inc		ecx
 	cmp		al, 0
 	jnz		.outputLoop
-	jmp		.ready
+	
+	SwitchTask 0
 
 	call	SetRealmode8259A	; 恢复 8259A 以顺利返回实模式, 未执行
 	jmp		SelectorCode16:0	; 返回实模式, 未执行
@@ -527,8 +532,7 @@ ClockHandler	equ	_ClockHandler - $$
 	mov		al, 0x20
 	out		0x20, al
 
-
-	; 判断RunningTask是否为0, 如果不为0, 则说明当前没有任务在运行, 无需进行任务切换
+	; 判断LeftTick是否为0, 如果不为0, 则说明当前没有任务在运行, 无需进行任务切换
 	mov     edx, dword [RunningTask]               
 	mov     ecx, dword [LeftTicks+edx*4]         
 	test    ecx, ecx                              
