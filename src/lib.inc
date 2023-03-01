@@ -168,3 +168,25 @@ MemCpy:
 	ret			; 函数结束，返回
 ; MemCpy 结束-------------------------------------------------------------
 
+; ClearScreen ------------------------------------------------------------------
+ClearScreen:
+	push	eax
+	push	ebx
+	push	ecx
+
+	mov		ah, 00000000b			; 0000: 黑底    0000: 黑字
+	mov		al, 0
+	mov		ebx, 0
+	mov		ecx, 4000
+.1:
+	mov		[gs:ebx], ax
+	add		ebx, 2
+	loop 	.1
+
+	pop		ecx
+	pop		ebx
+	pop		eax
+
+	ret
+; END of ClearScreen -----------------------------------------------------------
+

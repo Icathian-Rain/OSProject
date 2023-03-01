@@ -104,7 +104,8 @@ PG_USU		EQU	4	; U/S 属性位值, 用户级
 	InitDescBase LABEL_TASK%1_CODE, LABEL_TASK%1_DESC_CODE
 	InitDescBase LABEL_TASK%1_DATA, LABEL_TASK%1_DESC_DATA 
 	InitDescBase LABEL_TASK%1_STACK0, LABEL_TASK%1_DESC_STACK0 
-	InitDescBase LABEL_TASK%1_STACK3, LABEL_TASK%1_DESC_STACK3 
+	InitDescBase LABEL_TASK%1_STACK3, LABEL_TASK%1_DESC_STACK3
+	InitDescBase LABEL_TSS%1, LABEL_DESC_TSS%1 
 %endmacro
 
 
@@ -193,6 +194,48 @@ TopOfTask%1Stack3	equ	$ - LABEL_TASK%1_STACK3 - 1
 ; END of [SECTION .task%1stack3]
 %endmacro
 
+; 定义任务TSS
+; usage: DefineTaskTSS num
+; TSS ---------------------------------------------------------------------------------------------
+%macro DefineTaskTSS 1
+[SECTION .tss%1]
+ALIGN	32
+[BITS	32]
+LABEL_TSS%1:
+		DD	0			; Back
+		DD	TopOfStack		; 0 级堆栈
+		DD	SelectorStack		; 
+		DD	0			; 1 级堆栈
+		DD	0			; 
+		DD	0			; 2 级堆栈
+		DD	0			; 
+		DD	0			; CR3
+		DD	0			; EIP
+		DD	0			; EFLAGS
+		DD	0			; EAX
+		DD	0			; ECX
+		DD	0			; EDX
+		DD	0			; EBX
+		DD	0			; ESP
+		DD	0			; EBP
+		DD	0			; ESI
+		DD	0			; EDI
+		DD	0			; ES
+		DD	0			; CS
+		DD	0			; SS
+		DD	0			; DS
+		DD	0			; FS
+		DD	0			; GS
+		DD	0			; LDT
+		DW	0			; 调试陷阱标志
+		DW	$ - LABEL_TSS%1 + 2	; I/O位图基址
+		DB	0ffh			; I/O位图结束标志
+TSS%1Len		equ	$ - LABEL_TSS%1
+%endmacro
+; TSS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+
 ; 定义任务
 ; usage: DefineTask num, string, row,color
 %macro DefineTask 4
@@ -201,6 +244,7 @@ TopOfTask%1Stack3	equ	$ - LABEL_TASK%1_STACK3 - 1
 	DefineTaskData	%1, %2
 	DefineTaskStack0	%1
 	DefineTaskStack3	%1
+	DefineTaskTSS	%1
 %endmacro
 
 ; 定义初始化页表
@@ -242,7 +286,6 @@ LABEL_INIT_PAGE_TABLE%1:
 
 	mov		ax, SelectorLDT%1	; ┳ 加载 LDT
 	lldt	ax					; ┛
-	
 	mov		eax, PageDirBase%1	; ┳ 加载 CR3
 	mov		cr3, eax			; ┛
 

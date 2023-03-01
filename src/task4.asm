@@ -52,7 +52,10 @@ LABEL_DESC_DATA:	Descriptor	       0,	DataLen - 1, DA_DRW									; Data
 LABEL_DESC_STACK:	Descriptor	       0,        TopOfStack, DA_DRWA | DA_32					; Stack, 32 位
 LABEL_DESC_VIDEO:	Descriptor	 0B8000h,            0ffffh, DA_DRW + DA_DPL3					; 显存首地址
 ; TSS
-LABEL_DESC_TSS: 	Descriptor 			0,          TSSLen-1, DA_386TSS	   ;TSS
+LABEL_DESC_TSS0: 	Descriptor 			0,          TSS0Len-1, DA_386TSS	   ;TSS
+LABEL_DESC_TSS1: 	Descriptor 			0,          TSS1Len-1, DA_386TSS	   ;TSS
+LABEL_DESC_TSS2: 	Descriptor 			0,          TSS2Len-1, DA_386TSS	   ;TSS
+LABEL_DESC_TSS3: 	Descriptor 			0,          TSS3Len-1, DA_386TSS	   ;TSS
 
 ; 四个任务段
 LABEL_TASK0_DESC_LDT:    Descriptor         0,   TASK0LDTLen - 1, DA_LDT
@@ -75,7 +78,10 @@ SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT
 SelectorStack		equ	LABEL_DESC_STACK	- LABEL_GDT
 SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
 ; 四个任务段选择子
-SelectorTSS        equ LABEL_DESC_TSS     		- LABEL_GDT
+SelectorTSS0        equ LABEL_DESC_TSS0     		- LABEL_GDT
+SelectorTSS1        equ LABEL_DESC_TSS1     		- LABEL_GDT
+SelectorTSS2        equ LABEL_DESC_TSS2     		- LABEL_GDT
+SelectorTSS3        equ LABEL_DESC_TSS3     		- LABEL_GDT
 SelectorLDT0        equ LABEL_TASK0_DESC_LDT   	- LABEL_GDT
 SelectorLDT1        equ LABEL_TASK1_DESC_LDT    - LABEL_GDT
 SelectorLDT2        equ LABEL_TASK2_DESC_LDT    - LABEL_GDT
@@ -158,43 +164,6 @@ TopOfStack	equ	$ - LABEL_STACK - 1
 
 ; END of [SECTION .gs]
 
-; TSS ---------------------------------------------------------------------------------------------
-[SECTION .tss]
-ALIGN	32
-[BITS	32]
-LABEL_TSS:
-		DD	0			; Back
-		DD	TopOfStack		; 0 级堆栈
-		DD	SelectorStack		; 
-		DD	0			; 1 级堆栈
-		DD	0			; 
-		DD	0			; 2 级堆栈
-		DD	0			; 
-		DD	0			; CR3
-		DD	0			; EIP
-		DD	0			; EFLAGS
-		DD	0			; EAX
-		DD	0			; ECX
-		DD	0			; EDX
-		DD	0			; EBX
-		DD	0			; ESP
-		DD	0			; EBP
-		DD	0			; ESI
-		DD	0			; EDI
-		DD	0			; ES
-		DD	0			; CS
-		DD	0			; SS
-		DD	0			; DS
-		DD	0			; FS
-		DD	0			; GS
-		DD	0			; LDT
-		DW	0			; 调试陷阱标志
-		DW	$ - LABEL_TSS + 2	; I/O位图基址
-		DB	0ffh			; I/O位图结束标志
-TSSLen		equ	$ - LABEL_TSS
-; TSS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
 ; 定义任务
 DefineTask 0, "VERY", 20, 0Ch
 DefineTask 1, "LOVE", 20, 0Fh
@@ -235,7 +204,6 @@ LABEL_MEM_CHK_OK:
 	InitDescBase LABEL_SEG_CODE32,LABEL_DESC_CODE32
 	InitDescBase LABEL_DATA, LABEL_DESC_DATA
 	InitDescBase LABEL_STACK, LABEL_DESC_STACK
-	InitDescBase LABEL_TSS, LABEL_DESC_TSS
 
 	; 初始化任务描述符0
 	InitTaskDescBase 0
@@ -376,7 +344,7 @@ LABEL_SEG_CODE32:
 
 	mov		eax, PageDirBase0	; ┳ 加载 CR3
 	mov		cr3, eax			; ┛
-	mov		ax, SelectorTSS	; ┳ 加载 TSS
+	mov		ax, SelectorTSS0	; ┳ 加载 TSS
 	ltr		ax					; ┛
 	mov		eax, cr0			; ┓
 	or		eax, 80000000h		; ┣ 打开分页
@@ -400,29 +368,6 @@ LABEL_SEG_CODE32:
 
 	call	SetRealmode8259A	; 恢复 8259A 以顺利返回实模式, 未执行
 	jmp		SelectorCode16:0	; 返回实模式, 未执行
-
-; ClearScreen ------------------------------------------------------------------
-ClearScreen:
-	push	eax
-	push	ebx
-	push	ecx
-
-	mov		ah, 00000000b			; 0000: 黑底    0000: 黑字
-	mov		al, 0
-	mov		ebx, 0
-	mov		ecx, 4000
-.1:
-	mov		[gs:ebx], ax
-	add		ebx, 2
-	loop 	.1
-
-	pop		ecx
-	pop		ebx
-	pop		eax
-
-	ret
-; END of ClearScreen -----------------------------------------------------------
-
 
 
 ; Init8259A --------------------------------------------------------------------
