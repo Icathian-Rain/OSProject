@@ -1,13 +1,13 @@
 
 int RunningTask = 0;
 int LeftTicks[] = {0, 0, 0, 0};
-int TaskPriority[] = {8, 6, 4, 2};
-
+int TaskPriority[] = {16, 10, 8, 6};
 int main()
 {
     if(LeftTicks[RunningTask] == 0)
     {
-        if(LeftTicks[0] == 0 && LeftTicks[1] == 0 && LeftTicks[2] == 0 && LeftTicks[3] == 0)
+        if(LeftTicks[0] == 0 && LeftTicks[1] == 0 && 
+        LeftTicks[2] == 0 && LeftTicks[3] == 0)
         {
             for(int i = 0; i<4; i++)
             {
@@ -23,7 +23,6 @@ int main()
                 RunningTask = i;
             }
         }
-        
     }
     LeftTicks[RunningTask]--;
 }

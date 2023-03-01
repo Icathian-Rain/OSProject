@@ -112,9 +112,9 @@ _SavedIDTR:			dd	0	; 用于保存 IDTR
 _SavedIMREG:			db	0	; 中断屏蔽寄存器值
 _MemChkBuf:	times	256	db	0
 
-%define tickTimes   100;
+%define tickTimes  30;
 _RunningTask:			dd	0
-_TaskPriority:			dd	8*tickTimes, 6*tickTimes, 4*tickTimes, 2*tickTimes
+_TaskPriority:			dd	16*tickTimes, 10*tickTimes, 8*tickTimes, 6*tickTimes
 _LeftTicks:			dd	0, 0, 0, 0
 
 ; 保护模式下使用这些符号
@@ -499,7 +499,7 @@ Init8253A:
 	out		043h, al			; 设置 8253A 芯片, 2 字节计数值, 模式 3, 二进制计数
 	call	io_delay
 
-	mov		ax, 23863			; 频率 50 Hz, 设置 COUNT 为 1193180 / 50 = 23863
+	mov		ax, 59659			; 频率 20 Hz, 时钟周期为50ms, 设置 COUNT 为 1193180 / 20 = 59659
 	out		040h, al			; 将 COUNT 的低位写入通道 0
 	call	io_delay
 
@@ -546,8 +546,9 @@ ClockHandler	equ	_ClockHandler - $$
 	jz      .allFinished	; 跳转到allFinished, 重新赋值
 .goToNext:  ; 选择下一个任务
 	xor     eax, eax                               
-	xor     esi, esi                               
-.getMaxLoop:  ;	获取Ticks最大的任务 
+	xor     esi, esi
+	xor		ecx, ecx                               
+.getMaxLoop:  ;	获取Ticks最大的任务
 	cmp     dword [LeftTicks+eax*4], ecx           
 	jle     .notMax                                   
 	mov     ecx, dword [TaskPriority+eax*4]        
@@ -586,11 +587,13 @@ ClockHandler	equ	_ClockHandler - $$
 
 ; 若均已结束，重新赋值
 .allFinished:  ; Local function
+	xor		ecx, ecx
+.setLoop:
 	mov     eax, dword [TaskPriority + ecx*4]             
 	mov     dword [LeftTicks + ecx*4], eax
 	inc   	ecx
 	cmp    	ecx, 4
-	jne     .allFinished
+	jne     .setLoop
 	xor 	ecx, ecx                   
 	jmp     .goToNext  
                         
