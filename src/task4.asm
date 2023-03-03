@@ -18,26 +18,6 @@ PageTblBase3		equ	231000h	; 页表开始地址:		2M + 192K + 4K
 org 0100h
     jmp LABEL_BEGIN
 
-; IDT
-[SECTION .idt]
-ALIGN	32
-[BITS	32]
-LABEL_IDT:
-; 门                          目标选择子,            偏移, DCount, 属性
-%rep 32
-				Gate	SelectorCode32, SpuriousHandler,      0, DA_386IGate
-%endrep
-.020h:			Gate	SelectorCode32,    ClockHandler,      0, DA_386IGate
-%rep 95
-				Gate	SelectorCode32, SpuriousHandler,      0, DA_386IGate
-%endrep
-.080h:			Gate	SelectorCode32,  UserIntHandler,      0, DA_386IGate
-
-IdtLen		equ	$ - LABEL_IDT	; IDT 长度
-IdtPtr		dw	IdtLen - 1		; IDT 段界限
-			dd	0				; IDT 基地址, 待设置
-; END of [SECTION .idt]
-
 
 ; GDT
 [SECTION .gdt]
@@ -88,8 +68,42 @@ SelectorLDT2        equ LABEL_TASK2_DESC_LDT    - LABEL_GDT
 SelectorLDT3        equ LABEL_TASK3_DESC_LDT 	- LABEL_GDT
 ; END of [SECTION .gdt]
 
-; 数据段
 
+; LDT 和任务段定义
+; ---------------------------------------------------------------------------------------------
+; 定义任务
+DefineTask 0, "VERY", 20, 0Ch
+DefineTask 1, "LOVE", 20, 0Fh
+DefineTask 2, "HUST", 20, 0Ch
+DefineTask 3, "MRSU", 20, 0Fh
+; END of LDT 和任务段定义
+
+
+; IDT
+; ---------------------------------------------------------------------------------------------
+[SECTION .idt]
+ALIGN	32
+[BITS	32]
+LABEL_IDT:
+; 门                          目标选择子,            偏移, DCount, 属性
+%rep 32
+				Gate	SelectorCode32, SpuriousHandler,      0, DA_386IGate
+%endrep
+.020h:			Gate	SelectorCode32,    ClockHandler,      0, DA_386IGate
+%rep 95
+				Gate	SelectorCode32, SpuriousHandler,      0, DA_386IGate
+%endrep
+.080h:			Gate	SelectorCode32,  UserIntHandler,      0, DA_386IGate
+
+IdtLen		equ	$ - LABEL_IDT	; IDT 长度
+IdtPtr		dw	IdtLen - 1		; IDT 段界限
+			dd	0				; IDT 基地址, 待设置
+; END of [SECTION .idt]
+
+
+
+; 数据段
+; ---------------------------------------------------------------------------------------------
 [SECTION .data1]	 ; 数据段
 ALIGN	32
 [BITS	32]
@@ -146,14 +160,11 @@ PageTableNumber		equ	_PageTableNumber- $$
 RunningTask     equ _RunningTask - $$
 TaskPriority    equ _TaskPriority - $$
 LeftTicks       equ _LeftTicks - $$
-
-
 DataLen			equ	$ - LABEL_DATA
-
-
 ; END of [SECTION .data1]
 
 ; 全局堆栈段
+; ---------------------------------------------------------------------------------------------
 [SECTION .gs]
 ALIGN	32
 [BITS	32]
@@ -161,15 +172,11 @@ LABEL_STACK:
 	times 512 db 0
 
 TopOfStack	equ	$ - LABEL_STACK - 1
-
 ; END of [SECTION .gs]
 
-; 定义任务
-DefineTask 0, "VERY", 20, 0Ch
-DefineTask 1, "LOVE", 20, 0Fh
-DefineTask 2, "HUST", 20, 0Ch
-DefineTask 3, "MRSU", 20, 0Fh
 
+; 16位代码段
+; ---------------------------------------------------------------------------------------------
 [SECTION .s16]
 [BITS	16]
 LABEL_BEGIN:
@@ -204,63 +211,49 @@ LABEL_MEM_CHK_OK:
 	InitDescBase LABEL_SEG_CODE32,LABEL_DESC_CODE32
 	InitDescBase LABEL_DATA, LABEL_DESC_DATA
 	InitDescBase LABEL_STACK, LABEL_DESC_STACK
-
 	; 初始化任务描述符0
 	InitTaskDescBase 0
-
 	; 初始化任务描述符1
 	InitTaskDescBase 1
-
 	; 初始化任务描述符2
 	InitTaskDescBase 2
-
 	; 初始化任务描述符3
 	InitTaskDescBase 3
-
 	; 为加载 GDTR 作准备
 	xor	eax, eax
 	mov	ax, ds
 	shl	eax, 4
 	add	eax, LABEL_GDT		; eax <- gdt 基地址
 	mov	dword [GdtPtr + 2], eax	; [GdtPtr + 2] <- gdt 基地址
-
 	; 为加载 IDTR 作准备
 	xor	eax, eax
 	mov	ax, ds
 	shl	eax, 4
 	add	eax, LABEL_IDT		; eax <- idt 基地址
 	mov	dword [IdtPtr + 2], eax	; [IdtPtr + 2] <- idt 基地址
-
 	; 保存 IDTR
 	sidt	[_SavedIDTR]
-
 	; 保存中断屏蔽寄存器(IMREG)值
 	in	al, 21h
 	mov	[_SavedIMREG], al
-
 	; 加载 GDTR
 	lgdt	[GdtPtr]
-
 	; 关中断
 	cli
-
 	; 加载 IDTR
 	lidt	[IdtPtr]
-
 	; 打开地址线A20
 	in	al, 92h
 	or	al, 00000010b
 	out	92h, al
-
 	; 准备切换到保护模式
 	mov	eax, cr0
 	or	eax, 1
 	mov	cr0, eax
-
 	; 真正进入保护模式
 	jmp	dword SelectorCode32:0	; 执行这一句会把 SelectorCode32 装入 cs, 并跳转到 Code32Selector:0  处
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 LABEL_REAL_ENTRY:		; 从保护模式跳回到实模式就到了这里
 	mov	ax, cs
 	mov	ds, ax
@@ -309,9 +302,7 @@ LABEL_SEG_CODE32:
 	push	szMemChkTitle
 	call	DispStr
 	add	esp, 4
-	
 	call	DispMemSize		; 显示内存信息
-
 	; 计算页表个数
 	xor	edx, edx
 	mov	eax, [dwMemSize]
@@ -323,12 +314,10 @@ LABEL_SEG_CODE32:
 	inc	ecx		; 如果余数不为 0 就需增加一个页表
 .no_remainder:
 	mov	[PageTableNumber], ecx	; 暂存页表个数
-
 	call	LABEL_INIT_PAGE_TABLE0
 	call	LABEL_INIT_PAGE_TABLE1
 	call	LABEL_INIT_PAGE_TABLE2
 	call	LABEL_INIT_PAGE_TABLE3
-
 	; 初始化ticks
 	xor 	ecx, ecx 
 .initTicks:
@@ -338,10 +327,7 @@ LABEL_SEG_CODE32:
 	cmp    	ecx, 4
 	jne     .initTicks
 	xor 	ecx, ecx  
-
-	
 	sti							; 打开中断
-
 	mov		eax, PageDirBase0	; ┳ 加载 CR3
 	mov		cr3, eax			; ┛
 	mov		ax, SelectorTSS0	; ┳ 加载 TSS
@@ -352,7 +338,6 @@ LABEL_SEG_CODE32:
 	jmp		short .1			; ┛
 .1:
 	nop
-
 	; 提示初始化完成
 .ready:
 	xor 	ecx, ecx
@@ -363,107 +348,9 @@ LABEL_SEG_CODE32:
 	inc		ecx
 	cmp		al, 0
 	jnz		.outputLoop
-	
 	SwitchTask 0
-
 	call	SetRealmode8259A	; 恢复 8259A 以顺利返回实模式, 未执行
 	jmp		SelectorCode16:0	; 返回实模式, 未执行
-
-
-; Init8259A --------------------------------------------------------------------
-Init8259A:
-	mov		al, 011h
-	out		020h, al	; 主8259, ICW1.
-	call	io_delay
-
-	out		0A0h, al	; 从8259, ICW1.
-	call	io_delay
-
-	mov		al, 020h	; IRQ0 对应中断向量 0x20
-	out		021h, al	; 主8259, ICW2.
-	call	io_delay
-
-	mov		al, 028h	; IRQ8 对应中断向量 0x28
-	out		0A1h, al	; 从8259, ICW2.
-	call	io_delay
-
-	mov		al, 004h	; IR2 对应从8259
-	out		021h, al	; 主8259, ICW3.
-	call	io_delay
-
-	mov		al, 002h	; 对应主8259的 IR2
-	out		0A1h, al	; 从8259, ICW3.
-	call	io_delay
-
-	mov		al, 001h
-	out		021h, al	; 主8259, ICW4.
-	call	io_delay
-
-	out		0A1h, al	; 从8259, ICW4.
-	call	io_delay
-
-	mov		al, 11111110b	; 仅仅开启定时器中断
-	; mov		al, 11111111b	; 屏蔽主8259所有中断
-	out		021h, al	; 主8259, OCW1.
-	call	io_delay
-
-	mov		al, 11111111b	; 屏蔽从8259所有中断
-	out		0A1h, al	; 从8259, OCW1.
-	call	io_delay
-
-	ret
-; END of Init8259A -------------------------------------------------------------
-
-; SetRealmode8259A -------------------------------------------------------------
-SetRealmode8259A:
-	mov		ax, SelectorData
-	mov		fs, ax
-
-	mov		al, 017h
-	out		020h, al	; 主8259, ICW1.
-	call	io_delay
-
-	mov		al, 008h	; IRQ0 对应中断向量 0x8
-	out		021h, al	; 主8259, ICW2.
-	call	io_delay
-
-	mov		al, 001h
-	out		021h, al	; 主8259, ICW4.
-	call	io_delay
-
-	mov		al, [fs:SavedIMREG]	; ┓恢复中断屏蔽寄存器 IMREG 的原值
-	out		021h, al			; ┛
-	call	io_delay
-
-	ret
-; END of SetRealmode8259A ------------------------------------------------------
-
-; Init8253A --------------------------------------------------------------------
-Init8253A:
-	mov		al, 00110110b		; 通道 0 的 CONTROL 字节
-	out		043h, al			; 设置 8253A 芯片, 2 字节计数值, 模式 3, 二进制计数
-	call	io_delay
-
-	mov		ax, 59659			; 频率 20 Hz, 时钟周期为50ms, 设置 COUNT 为 1193180 / 20 = 59659
-	out		040h, al			; 将 COUNT 的低位写入通道 0
-	call	io_delay
-
-	mov		al, ah
-	out		040h, al			; 将 COUNT 的高位写入通道 0
-	call	io_delay
-
-	ret
-; END of Init8253A -------------------------------------------------------------
-
-; io_delay ---------------------------------------------------------------------
-io_delay:
-	nop
-	nop
-	nop
-	nop
-	ret
-; END of io_delay --------------------------------------------------------------
-
 
 ; int handler ------------------------------------------------------------------
 _ClockHandler:
@@ -568,55 +455,7 @@ InitPageTable 1
 InitPageTable 2
 InitPageTable 3
 
-; DispMemSize ------------------------------------------------------------------
-DispMemSize:
-	push	esi
-	push	edi
-	push	ecx
-
-	mov		esi, MemChkBuf
-	mov		ecx, [dwMCRNumber]		;for(int i = 0; i < [MCRNumber]; i++) // 每次得到一个ARDS(Address Range Descriptor Structure)结构
-.loop:								;{
-	mov		edx, 5					;	for(int j = 0; j < 5; j++)	// 每次得到一个ARDS中的成员，共5个成员
-	mov		edi, ARDStruct			;	{
-.1:									;		// 依次显示：BaseAddrLow，BaseAddrHigh，LengthLow，LengthHigh，Type
-	push	dword [esi]				;
-	call	DispInt					;		DispInt(MemChkBuf[j * 4]); // 显示一个成员
-	pop		eax						;
-	stosd							;		ARDStruct[j * 4] = MemChkBuf[j * 4];
-	add		esi, 4					;
-	dec		edx						;
-	cmp		edx, 0					;
-	jnz		.1						;	}
-	call	DispReturn				;	printf("\n");
-	cmp		dword [dwType], 1		;	if(Type == AddressRangeMemory) // AddressRangeMemory : 1, AddressRangeReserved : 2
-	jne		.2						;	{
-	mov		eax, [dwBaseAddrLow]	;
-	add		eax, [dwLengthLow]		;
-	cmp		eax, [dwMemSize]		;		if(BaseAddrLow + LengthLow > MemSize)
-	jb		.2						;
-	mov		[dwMemSize], eax		;			MemSize = BaseAddrLow + LengthLow;
-.2:									;	}
-	loop	.loop					;}
-									;
-	call	DispReturn				;printf("\n");
-	push	szRAMSize				;
-	call	DispStr					;printf("RAM size:");
-	add		esp, 4					;
-									;
-	push	dword [dwMemSize]		;
-	call	DispInt					;DispInt(MemSize);
-	add		esp, 4					;
-
-	pop		ecx
-	pop		edi
-	pop		esi
-	ret
-; End of DispMemSize -----------------------------------------------------------
-
 %include	"lib.inc"	; 库函数
-
-
 SegCode32Len	equ	$ - LABEL_SEG_CODE32
 ; END of [SECTION .s32]
 
